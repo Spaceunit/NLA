@@ -43,6 +43,7 @@ class MPCAS:
                 "help": "display helpfull information",
                 "new": "enter new raw data",
                 "show slist": "show raw data",
+                "show scount": "show raw data",
                 "show acc": "show accuracy",
                 "acc": "set accuracy",
                 "mk": "set default raw data",
@@ -51,7 +52,8 @@ class MPCAS:
                 "image 1": "show 2D visualization",
             }
         }
-        self.expression = expression.Expression("No name", "x**2")
+        self.expression_P = expression.Expression("P", "x2-x**2")
+        self.expression_Q = expression.Expression("Q", "x2**2-2*x2-2x1-x**2")
         self.condition = expression.Expression("No name", "x < 5")
         self.accuracy = 3
         self.epsilon = [1, 1]
@@ -147,7 +149,8 @@ class MPCAS:
         pass
 
     def print_raw_data(self):
-        self.expression.show_expr()
+        self.expression_P.show_expr()
+        self.expression_Q.show_expr()
         pass
 
     def resolve(self):
