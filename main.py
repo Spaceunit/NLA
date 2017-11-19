@@ -6,7 +6,7 @@ from matplotlib import mlab
 
 import matrix
 
-import lab_1
+import mpcas
 
 
 class Work:
@@ -94,7 +94,7 @@ class Work:
             elif task == 9:
                 self.makedafault()
             elif task == 10:
-                Task = lab_1.MPCAS()
+                Task = mpcas.MPCAS()
                 Task.importparam(self.accuracy)
                 Task.dostaff()
                 pass
