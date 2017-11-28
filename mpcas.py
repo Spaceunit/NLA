@@ -3,11 +3,13 @@ import matrix
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from matplotlib import cm
+import matplotlib.cm as cm
+import matplotlib.lines as lns
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from matplotlib import mlab
 import matplotlib.cm as mplcm
 from matplotlib import colors
+from matplotlib import animation
 
 import queue
 
@@ -75,18 +77,17 @@ class CountProcess(multiprocessing.Process):
                 '''
                 task = self.task_queue.get_nowait()
                 # print(task)
-                print(task['name'])
+                # print(task['name'])
 
                 k = 1
-                xk = task['point'].copy()
                 self.alpha = task['alpha'].copy()
                 self.n = task['n']
-                point_move = [xk.copy()]
-
+                point_move = [[0., 0.] for _ in range(self.n)]
+                point_move[0][0] = task['point'][0]
+                point_move[0][1] = task['point'][1]
                 while k < self.n:
-                    xk[0] += self.alpha[0] * self.get_vx(xk, self.P, self.Q)
-                    xk[1] += self.alpha[1] * self.get_vy(xk, self.P, self.Q)
-                    point_move.append(xk.copy())
+                    point_move[k][0] = point_move[k - 1][0] + self.alpha[0] * self.get_vx(point_move[k - 1], self.P, self.Q)
+                    point_move[k][1] = point_move[k - 1][1] + self.alpha[1] * self.get_vy(point_move[k - 1], self.P, self.Q)
                     k += 1
                 self.result_queue.put(self.deepcopy(point_move))
             except queue.Empty:
@@ -116,6 +117,13 @@ class MPCAS:
                 "show result": 11,
                 "image 1": 12,
                 "start m": 13,
+                "image 2": 14,
+                "image 3": 15,
+                "int":     16,
+                "dist":    17,
+                "count":   18,
+                "npoint":  19,
+                "image 2 file": 20,
             },
             "description": {
                 "none": "do nothing",
@@ -133,6 +141,13 @@ class MPCAS:
                 "start m": "start calculation process with multi p",
                 "show result": "show result",
                 "image 1": "show 2D visualization",
+                "image 2": "show 2D visualization in different colors",
+                "image 3": "show 2D visualization in different colors by quiver",
+                "int":     "set interval witch will be a side of square for calculations",
+                "dist":    "set dist. between points",
+                "count":   "set count of iterations",
+                "npoint":  "enter n points",
+                "image 2 file": "show 2D visualization in different colors sava in file",
             }
         }
         self.result = {"point": []}
@@ -150,7 +165,7 @@ class MPCAS:
         self.accuracy = 3
         self.alpha = [10.0 ** (-self.accuracy), 10.0 ** (-self.accuracy)]
 
-        self.n = 1000000
+        self.n = 10000
         self.points_count = 10
         self.start_point = [[x, y] for x in range(self.points_count + 1) for y in range(self.points_count + 1)]
 
@@ -185,38 +200,55 @@ class MPCAS:
         print("Help v0.002")
         self.showCommands()
 
-    def make_range_utits(self):
+    def make_range_units(self):
         self.start_point = [[x, y] for x in range(self.c_range[0], self.c_range[1]) for y in
                             range(self.c_range[2], self.c_range[3])]
 
-    def make_range_interval(self):
-        self.start_point
+    def make_range_interval_0(self, n, m):
+        n = int(n)
+        m = int(m)
+        c_range = [float(num) + float(el) / float(n) for el in range(n) for num in range(m)]
+        self.start_point = [[x, y] for x in range(c_range) for y in
+                            range(c_range)]
+
+    def make_range_interval(self, crg, step):
+        n = int(abs(crg[1] - crg[0]) / step)
+        if n != 0:
+            c_range = [crg[0] + step * p for p in range(n)]
+        else:
+            c_range = crg.copy()
+        self.start_point = [[x, y] for x in c_range for y in c_range]
 
     def makedefault(self):
 
         self.accuracy = 2
         self.epsilon[0] = 10.0 ** (-self.accuracy)
+        # self.epsilon[1] = 10.0 ** -1
+        self.epsilon[1] = 0.1
         self.start_point = [0.2, 0.1]
         self.points_count = 40
+        self.pr = [0.1, 0.1]
         #grd = [cord for cord]
         self.c_range = [-20, 20, -20, 20]
         # self.start_point = [[x, y] for x in range(self.c_range[0], self.c_range[1]) for y in range(self.c_range[2], self.c_range[3])]
-        self.make_range_units()
+        # self.make_range_units()
+        self.make_range_interval(self.pr, self.epsilon[1])
 
 
         self.points_count = len(self.start_point)
         self.result = {'point': []}
-        print(self.result['point'])
-        print(self.start_point)
+        # print(self.result['point'])
+        print("Count of start points:", len(self.start_point))
         for i in range(len(self.start_point)):
             self.result['point'].append([self.start_point[i].copy()])
             # print(self.result['point'])
         # print(self.result['point'])
         self.epsilon[1] = self.epsilon[0]
-        self.alpha = self.epsilon.copy()
+        self.alpha[0] = self.epsilon[0]
+        self.alpha[1] = self.alpha[0]
         #self.result.append(self.start_point.copy())
         #self.n = 1000000
-        self.n = 10000
+        self.n = 100
 
     def importparam(self, accuracy):
         # self.accuracy = accuracy
@@ -225,7 +257,7 @@ class MPCAS:
     def setaccuracy(self):
         task = 0
         print('')
-        print("Enter accuracy:")
+        print("Enter step:")
         while task != 1:
             self.accuracy = int(input("-> "))
             print("Input is correct? (enter - yes/n - no)")
@@ -237,12 +269,112 @@ class MPCAS:
                     print("Please enter positive number!")
                     task = 0
         self.epsilon[0] = 10 ** (-self.accuracy)
-        self.epsilon[1] = self.epsilon[0]
+        self.alpha[0] = self.epsilon[0]
+        self.alpha[1] = self.alpha[0]
 
-    def inputnewdata(self):
-        self.expression.input_expr()
-        self.expression.input_range()
+    def set_points_dist(self):
+        task = 0
+        print('')
+        print("Enter dist between points:")
+        while task != 1:
+            accuracy = float(input("-> "))
+            print("Input is correct? (enter - yes/n - no)")
+            command = input("-> ")
+            if command != "n":
+                task = 1
+            else:
+                if accuracy < 0:
+                    print("Please enter positive number!")
+                    task = 0
+        self.epsilon[1] = accuracy
+        self.make_range_interval(self.pr, self.epsilon[1])
+        self.points_count = len(self.start_point)
+        print("Count of start points:", len(self.start_point))
+
+    def set_count_of_iterations(self):
+        task = 0
+        print('')
+        print("Enter count of iterations for each point:")
+        while task != 1:
+            accuracy = int(input("-> "))
+            print("Input is correct? (enter - yes/n - no)")
+            command = input("-> ")
+            if command != "n":
+                task = 1
+            else:
+                if accuracy < 0:
+                    print("Please enter positive number!")
+                    task = 0
+        self.n = accuracy
+
+    def set_points(self):
+        task = 0
+        a = matrix.Matrix([], "Initial matrix")
+        while task != 1:
+            print('')
+            print("Enter count of points:")
+            while task != 1:
+                num = int(input("-> "))
+                print("Input is correct? (enter - yes/n - no)")
+                command = input("-> ")
+                if command != "n":
+                    a = self.inputmatrix(num)
+                    task = 1
+            task = 0
+            a.rename("Initial matrix")
+            a.showmatrix()
+            print("Matrix is correct? (enter - yes/n - no)")
+            command = input("-> ")
+            if command != "n":
+                task = 1
+                self.start_point = a.matrix.copy()
+                self.points_count = len(self.start_point)
+
+
+    def inputmatrix(self, num):
+        print('')
+        i = 0
+        task = 0
+        nm = matrix.Matrix([], "new matrix")
+        while i < num:
+            print("Enter matrix row (use spaces)")
+            print("Row ", i + 1)
+            while task != 1:
+                row = list(map(float, input("-> ").split()))
+                print("Input is correct? (enter - yes/n - no)")
+                command = input("-> ")
+                if command != "n" and len(row) == 2:
+                    task = 1
+                    nm.appendnrow(row)
+                elif len(row) != num:
+                    print('')
+                    print("Incorrect input: count of items.")
+            task = 0
+            i += 1
+        return nm
+
+
+    def inputnewdata_expr(self):
+        self.expression_P.input_expr()
+        self.expression_Q.input_expr()
         pass
+
+    def inputnewdata_interval(self):
+        task = 0
+        print("Enter range")
+        while task != 1:
+            row = list(map(float, input("-> ").split()))
+            print("Input is correct? (enter - yes/n - no)")
+            command = input("-> ")
+            if command != "n" and len(row) == 2:
+                task = 1
+            elif len(row) != 2:
+                print('')
+                print("Incorrect input: count of items.")
+        self.pr = row
+        self.make_range_interval(row, self.epsilon[1])
+        self.points_count = len(self.start_point)
+        print("Count of start points:", len(self.start_point))
 
     def dostaff(self):
         task = 0
@@ -259,7 +391,7 @@ class MPCAS:
             elif task == 4:
                 self.showHelp()
             elif task == 5:
-                self.inputnewdata()
+                self.inputnewdata_expr()
             elif task == 6:
                 self.print_raw_data()
             elif task == 8:
@@ -274,20 +406,38 @@ class MPCAS:
                 self.printresult_g()
             elif task == 13:
                 self.resolve_m()
+            elif task == 14:
+                self.printresult_g_color()
+            elif task == 15:
+                self.printresult_g_color_q()
+            elif task == 16:
+                self.inputnewdata_interval()
+            elif task == 17:
+                self.set_points_dist()
+            elif task == 18:
+                self.set_count_of_iterations()
+            elif task == 19:
+                self.set_points()
+            elif task == 20:
+                self.printresult_g_color_image()
         pass
 
     def print_raw_data(self):
         self.expression_P.show_expr()
         self.expression_Q.show_expr()
+
         pass
 
     @autojit
     def resolve(self):
-        self.makedefault()
+        # self.makedefault()
         #self.result['point'] = [[]] * (self.points_count ** 2)
         # xk = self.start_point.copy()
         # print(xk)
         # self.start_point = [[x, y] for x in range(self.points_count+1) for y in range(self.points_count+1)]
+        self.result['point'] = []
+        for i in range(len(self.start_point)):
+            self.result['point'].append([self.start_point[i].copy()])
         start = timer()
         k = 1
         i = 0
@@ -313,13 +463,22 @@ class MPCAS:
         # self.printresult()
 
     def resolve_m(self):
-        self.makedefault()
+        # self.makedefault()
+        self.result['point'] = []
+        for i in range(len(self.start_point)):
+            self.result['point'].append([self.start_point[i].copy()])
+
         xk = self.start_point.copy()
-        print(xk)
+        # print(xk)
 
         points_count = len(self.start_point)
         number_of_task = points_count
         number_of_processes = multiprocessing.cpu_count()
+
+        self.processes = []
+
+        start = timer()
+
         for i in range(number_of_task):
             # tasks_to_accomplish.put("Task no " + str(i))
             self.tasks_to_accomplish.put(
@@ -344,6 +503,9 @@ class MPCAS:
         while not self.tasks_that_are_done.empty():
             r = self.tasks_that_are_done.get()
             self.result['point'].append(r)
+
+        dt = timer() - start
+        print("Was counted in {: f} s".format(dt))
 
 
     def resolve_worker(self, P, Q, xk, alpha, i):
@@ -582,8 +744,92 @@ class MPCAS:
             plt.plot(vr[-1][0], vr[-1][1], 'b-',)
         # fig = plt.figure()
         # ax = fig.add_subplot(111)
-        print(vr[0])
+        # print(vr[0])
         # ax.plot(vr[0][0], vr[0][1], '-', lw=1, color='red', ms=10)
+        plt.show()
+
+    def printresult_g_color(self):
+        vr = []
+        #fig = plt.figure()
+        _colors = cm.rainbow(np.linspace(0, 1, len(self.result['point'])))
+        for i in range(len(self.result['point'])):
+            vr.append([[], []])
+            for j in range(len(self.result['point'][i])):
+                vr[-1][0].append(self.result["point"][i][j][0])
+                vr[-1][1].append(self.result["point"][i][j][1])
+            #ax = fig.add_subplot(111)
+            #ax.plot(vr[-1][0], vr[-1][1], '-', lw=1, color='red', ms=10)
+            plt.plot(vr[-1][0], vr[-1][1], '-', c=_colors[i], )
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # print(vr[0])
+        # ax.plot(vr[0][0], vr[0][1], '-', lw=1, color='red', ms=10)
+        plt.show()
+
+    def printresult_g_color_image(self):
+        vr = []
+        fig = plt.figure(figsize=(10, 10), dpi=600, facecolor='w', )
+        ax = fig.add_subplot(111)
+        _colors = cm.rainbow(np.linspace(0, 1, len(self.result['point'])))
+        for i in range(len(self.result['point'])):
+            vr.append([[], []])
+            for j in range(len(self.result['point'][i])):
+                vr[-1][0].append(self.result["point"][i][j][0])
+                vr[-1][1].append(self.result["point"][i][j][1])
+            #ax = fig.add_subplot(111)
+            #ax.plot(vr[-1][0], vr[-1][1], '-', lw=1, color='red', ms=10)
+            ax.plot(vr[-1][0], vr[-1][1], '-', c=_colors[i], )
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # print(vr[0])
+        # ax.plot(vr[0][0], vr[0][1], '-', lw=1, color='red', ms=10)
+        fig.savefig('Z:\\NLA\\fig.png')
+
+    def make_video(self):
+        vr = []
+        lines = []
+        fig = plt.figure()
+        ax = plt.axes(xlim=(self.pr[0], self.pr[1]), ylim=(self.pr[0], self.pr[1]))
+        _colors = cm.rainbow(np.linspace(0, 1, len(self.result['point'])))
+        for i in range(len(self.result['point'])):
+            vr.append([[], []])
+            for j in range(len(self.result['point'][i])):
+                vr[-1][0].append(self.result["point"][i][j][0])
+                vr[-1][1].append(self.result["point"][i][j][1])
+            line, = ax.plot([], [], '-', c=_colors[i], )
+            lines.append(line)
+
+        def init():
+            for j in range(len(vr[i])):
+                lines[j].set_data([], [])
+            return lines
+
+        def animate(i):
+            for j in range(len(vr[i])):
+                lines[j].set_data(vr[j][0][0:i], vr[j][1][0:i])
+            return lines
+
+        anim = animation.FuncAnimation(fig, animate, init_func=init(),
+                                       frames=200, interval=20, blit=True)
+        plt.show()
+
+    def printresult_g_color_q(self):
+        X, Y = np.meshgrid(np.arange(self.pr[0], self.pr[1], self.epsilon[1]), np.arange(self.pr[0], self.pr[1], self.epsilon[1]))
+        start = timer()
+        U = np.array(self.expression_P.execute_l([X, Y]))
+        V = np.array(self.expression_Q.execute_l([X, Y]))
+
+        # U, V = np.gradient(self.expression_P.execute_l(X), self.expression_Q.execute_l(Y), self.epsilon[1])
+        dt = timer() - start
+        print("Was counted in {: f} s".format(dt))
+        plt.figure()
+        plt.title("pivot='tip'; scales with x view")
+        M = np.hypot(U, V)
+        Q = plt.quiver(X[::3], Y[::3], U[::3], V[::3], M[::3], pivot='tip', scale=1/self.epsilon[1])
+        #qk = plt.quiverkey(Q, 0.9, 0.9, 1, r'$1 \frac{m}{s}$', labelpos='E',
+        #                   coordinates='figure')
+        # plt.scatter(X, Y, color='k', s=1)
+
         plt.show()
 
 
