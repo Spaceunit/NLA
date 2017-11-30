@@ -1,5 +1,6 @@
 import math
 import matrix
+import types
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -124,6 +125,7 @@ class MPCAS:
                 "count":   18,
                 "npoint":  19,
                 "image 2 file": 20,
+                "int sq": 21,
             },
             "description": {
                 "none": "do nothing",
@@ -148,6 +150,7 @@ class MPCAS:
                 "count":   "set count of iterations",
                 "npoint":  "enter n points",
                 "image 2 file": "show 2D visualization in different colors sava in file",
+                "int sq": "generate points in square between two points",
             }
         }
         self.result = {"point": []}
@@ -219,6 +222,16 @@ class MPCAS:
             c_range = crg.copy()
         self.start_point = [[x, y] for x in c_range for y in c_range]
 
+    def make_range_interval_s(self, crg, step):
+        n1 = int(abs(crg[0][0] - crg[1][0]) / step)
+        n2 = int(abs(crg[0][1] - crg[1][1]) / step)
+        if n1 != 0 and n2 != 0:
+            c_range1 = [crg[0][0] + step * p for p in range(n1)]
+            c_range2 = [crg[0][1] + step * p for p in range(n2)]
+        else:
+            c_range = [0.0, 1.0]
+        self.start_point = [[x, y] for x in c_range1 for y in c_range2]
+
     def makedefault(self):
 
         self.accuracy = 2
@@ -287,7 +300,10 @@ class MPCAS:
                     print("Please enter positive number!")
                     task = 0
         self.epsilon[1] = accuracy
-        self.make_range_interval(self.pr, self.epsilon[1])
+        if isinstance(self.pr[0], list):
+            self.make_range_interval_s(self.pr, self.epsilon[1])
+        else:
+            self.make_range_interval(self.pr, self.epsilon[1])
         self.points_count = len(self.start_point)
         print("Count of start points:", len(self.start_point))
 
@@ -328,6 +344,30 @@ class MPCAS:
             if command != "n":
                 task = 1
                 self.start_point = a.matrix.copy()
+                self.points_count = len(self.start_point)
+
+    def set_two_points(self):
+        task = 0
+        a = matrix.Matrix([], "Initial matrix")
+        while task != 1:
+            print('')
+            print("Enter two border points:")
+            while task != 1:
+                num = 2
+                print("Do you want set points? (enter - yes/n - no)")
+                command = input("-> ")
+                if command != "n":
+                    a = self.inputmatrix(num)
+                    task = 1
+            task = 0
+            a.rename("Initial matrix")
+            a.showmatrix()
+            print("Matrix is correct? (enter - yes/n - no)")
+            command = input("-> ")
+            if command != "n":
+                task = 1
+                self.pr = a.matrix.copy()
+                self.make_range_interval_s(self.pr, self.epsilon[1])
                 self.points_count = len(self.start_point)
 
 
@@ -420,12 +460,15 @@ class MPCAS:
                 self.set_points()
             elif task == 20:
                 self.printresult_g_color_image()
+            elif task == 21:
+                self.set_two_points()
         pass
 
     def print_raw_data(self):
         self.expression_P.show_expr()
         self.expression_Q.show_expr()
-
+        print(self.start_point)
+        print(self.points_count)
         pass
 
     @autojit
