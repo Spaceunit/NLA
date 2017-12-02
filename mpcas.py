@@ -39,6 +39,8 @@ class CountProcess(multiprocessing.Process):
         self.P = expression.Expression("P", "x2-x1**2")
         self.Q = expression.Expression("Q", "x2**2-2*x2-2*x1-x1**2")
         self.n = 100
+        self.condition = int(self.n * 0.1)
+        self.rule = 0
 
     @staticmethod
     def get_vx(param, P, Q):
@@ -68,6 +70,36 @@ class CountProcess(multiprocessing.Process):
                 xn[i].append(x[i][j])
         return xn
 
+    def set_alpha(self, point_path, k):
+        if self.rule != 0:
+            if self.rule == 1:
+                if k > 2:
+                    self.ch_rule_1(point_path[-1], point_path[-2], point_path[-3])
+            elif self.rule == 2:
+                if k > 2:
+                    self.ch_rule_1(point_path[-1], point_path[-2], point_path[-3])
+
+    def set_cond(self):
+        self.condition = int(self.n * 0.1)
+
+    def ch_rule_1(self, p2, p1, p0):
+        dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
+        dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
+        if dist1 > dist0:
+            self.alpha[0] += dist0 / dist1
+        elif dist0 > dist1:
+            self.alpha[0] -= dist1 / dist0
+        self.alpha[1] = self.alpha[0]
+
+    def ch_rule_2(self, p2, p1, p0):
+        dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
+        dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
+        if dist1 > dist0:
+            self.alpha[0] *= math.e * dist0 / dist1
+        elif dist0 > dist1:
+            self.alpha[0] *= math.e * dist1 / dist0
+        self.alpha[1] = self.alpha[0]
+
     def run(self):
         while not self.exit.is_set():
             try:
@@ -81,7 +113,9 @@ class CountProcess(multiprocessing.Process):
                 # print(task['name'])
 
                 k = 1
+                self.rule = task['rule']
                 self.alpha = task['alpha'].copy()
+                pr_alpha = self.alpha.copy()
                 self.n = task['n']
                 point_move = [[0., 0.] for _ in range(self.n)]
                 point_move[0][0] = task['point'][0]
@@ -89,7 +123,9 @@ class CountProcess(multiprocessing.Process):
                 while k < self.n:
                     point_move[k][0] = point_move[k - 1][0] + self.alpha[0] * self.get_vx(point_move[k - 1], self.P, self.Q)
                     point_move[k][1] = point_move[k - 1][1] + self.alpha[1] * self.get_vy(point_move[k - 1], self.P, self.Q)
+                    self.set_alpha(point_path=point_move, k=k)
                     k += 1
+                self.alpha = pr_alpha
                 self.result_queue.put(self.deepcopy(point_move))
             except queue.Empty:
                 self.shutdown()
@@ -126,6 +162,7 @@ class MPCAS:
                 "npoint":  19,
                 "image 2 file": 20,
                 "int sq": 21,
+                "rule": 22,
             },
             "description": {
                 "none": "do nothing",
@@ -151,6 +188,7 @@ class MPCAS:
                 "npoint":  "enter n points",
                 "image 2 file": "show 2D visualization in different colors sava in file",
                 "int sq": "generate points in square between two points",
+                "rule": "set rule's number",
             }
         }
         self.result = {"point": []}
@@ -173,6 +211,8 @@ class MPCAS:
         self.start_point = [[x, y] for x in range(self.points_count + 1) for y in range(self.points_count + 1)]
 
         self.epsilon = [1, 1]
+
+        self.rule = 0
         self.makedefault()
 
 
@@ -245,7 +285,9 @@ class MPCAS:
         self.c_range = [-20, 20, -20, 20]
         # self.start_point = [[x, y] for x in range(self.c_range[0], self.c_range[1]) for y in range(self.c_range[2], self.c_range[3])]
         # self.make_range_units()
-        self.make_range_interval(self.pr, self.epsilon[1])
+        # self.make_range_interval(self.pr, self.epsilon[1])
+
+        self.start_point = [[0.1, 0.1]]
 
 
         self.points_count = len(self.start_point)
@@ -262,6 +304,7 @@ class MPCAS:
         #self.result.append(self.start_point.copy())
         #self.n = 1000000
         self.n = 100
+        self.rule = 0
 
     def importparam(self, accuracy):
         # self.accuracy = accuracy
@@ -346,6 +389,20 @@ class MPCAS:
                 self.start_point = a.matrix.copy()
                 self.points_count = len(self.start_point)
 
+    def set_rule(self):
+        task = 0
+        num = 0
+        while task != 1:
+            print('')
+            print("Enter rule number:")
+            while task != 1:
+                num = int(input("-> "))
+                print("Input is correct? (enter - yes/n - no)")
+                command = input("-> ")
+                if command != "n":
+                    task = 1
+                    self.rule = num
+
     def set_two_points(self):
         task = 0
         a = matrix.Matrix([], "Initial matrix")
@@ -369,7 +426,6 @@ class MPCAS:
                 self.pr = a.matrix.copy()
                 self.make_range_interval_s(self.pr, self.epsilon[1])
                 self.points_count = len(self.start_point)
-
 
     def inputmatrix(self, num):
         print('')
@@ -462,13 +518,19 @@ class MPCAS:
                 self.printresult_g_color_image()
             elif task == 21:
                 self.set_two_points()
+            elif task == 22:
+                self.set_rule()
         pass
 
     def print_raw_data(self):
         self.expression_P.show_expr()
         self.expression_Q.show_expr()
+        print("Start point(s)")
         print(self.start_point)
+        print("Points count")
         print(self.points_count)
+        print("Alpha")
+        print(self.alpha)
         pass
 
     @autojit
@@ -478,6 +540,7 @@ class MPCAS:
         # xk = self.start_point.copy()
         # print(xk)
         # self.start_point = [[x, y] for x in range(self.points_count+1) for y in range(self.points_count+1)]
+        pr_alpha = self.alpha.copy()
         self.result['point'] = []
         for i in range(len(self.start_point)):
             self.result['point'].append([self.start_point[i].copy()])
@@ -486,6 +549,7 @@ class MPCAS:
         i = 0
         while i < self.points_count:
             xk = self.result['point'][i][0].copy()
+            point_path = self.result['point'][i]
             # print(xk)
             # for j in range(len(self.result['point'])):
                 # print(len(self.result['point'][j]))
@@ -493,11 +557,13 @@ class MPCAS:
             while k < self.n:
                 xk[0] += self.alpha[0] * self.getVx(xk)
                 xk[1] += self.alpha[1] * self.getVy(xk)
+                self.set_alpha(point_path=point_path, k=k)
                 self.collect_data(i, xk)
                 k += 1
             i += 1
         dt = timer() - start
         print("Was counted in {: f} s".format(dt))
+        self.alpha = pr_alpha
         # print(xk)
         # print(len(self.result['point'][0]))
         # print(len(self.result['point'][1]))
@@ -526,7 +592,7 @@ class MPCAS:
             # tasks_to_accomplish.put("Task no " + str(i))
             self.tasks_to_accomplish.put(
                 {'name': 'point #' + str(i), 'point': self.start_point[i].copy(), 'n': self.n, 'alpha': self.alpha.copy(),
-                 'result': [self.start_point[i].copy()], 'time': 0.0})
+                 'result': [self.start_point[i].copy()], 'rule': self.rule, 'time': 0.0})
 
         # creating processes
         for w in range(number_of_processes):
@@ -542,7 +608,7 @@ class MPCAS:
         #     print(self.tasks_that_are_done.get())
 
         # print the output
-        print("Tssks that done are empty? -", self.tasks_that_are_done.empty())
+        print("Tasks that done are empty? -", self.tasks_that_are_done.empty())
         while not self.tasks_that_are_done.empty():
             r = self.tasks_that_are_done.get()
             self.result['point'].append(r)
@@ -550,6 +616,42 @@ class MPCAS:
         dt = timer() - start
         print("Was counted in {: f} s".format(dt))
 
+    def set_alpha(self, point_path, k):
+        if self.rule != 0:
+            if self.rule == 1:
+                if k > 2:
+                    self.ch_rule_1(point_path[-1], point_path[-2], point_path[-3])
+            elif self.rule == 2:
+                if k > 2:
+                    self.ch_rule_2(point_path[-1], point_path[-2], point_path[-3])
+
+    def ch_rule_1(self, p2, p1, p0):
+        dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
+        dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
+        print("Dist 0 is", dist0)
+        print("Dist 1 is", dist1)
+        if dist1 < dist0:
+            self.alpha[0] *= dist1 / dist0 * self.epsilon[0]
+        elif dist1 > dist0:
+            self.alpha[0] *= 1.0 + dist0 / dist1 * self.epsilon[0]
+        self.alpha[1] = self.alpha[0]
+        print("Alpha")
+        print(self.alpha)
+        print("--------")
+
+    def ch_rule_2(self, p2, p1, p0):
+        dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
+        dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
+        print("Dist 0 is", dist0)
+        print("Dist 1 is", dist1)
+        if dist1 < dist0:
+            self.alpha[0] *= math.e ** -1.0 * self.epsilon[0]
+        elif dist1 > dist0:
+            self.alpha[0] *= 1.0 + math.e ** -1.0 * self.epsilon[0]
+        self.alpha[1] = self.alpha[0]
+        print("Alpha")
+        print(self.alpha)
+        print("--------")
 
     def resolve_worker(self, P, Q, xk, alpha, i):
         print("Begin worker, #", i)
