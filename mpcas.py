@@ -1026,3 +1026,6 @@ def m_getVy(param, P, Q):
         vy = float('Inf')
     return vy
 
+if __name__ == '__main__':
+    Some = MPCAS()
+    Some.dostaff()
