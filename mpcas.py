@@ -35,6 +35,7 @@ class CountProcess(multiprocessing.Process):
         self.task_queue = tasks_to_accomplish
         self.result_queue = tasks_that_are_done
         self.exit = multiprocessing.Event()
+        self.epsilon = [0.01, 0.01]
         self.alpha = [0.01, 0.01]
         self.P = expression.Expression("P", "x2-x1**2")
         self.Q = expression.Expression("Q", "x2**2-2*x2-2*x1-x1**2")
@@ -85,20 +86,30 @@ class CountProcess(multiprocessing.Process):
     def ch_rule_1(self, p2, p1, p0):
         dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
         dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
-        if dist1 > dist0:
-            self.alpha[0] += dist0 / dist1
-        elif dist0 > dist1:
-            self.alpha[0] -= dist1 / dist0
+        print("Dist 0 is", dist0)
+        print("Dist 1 is", dist1)
+        if dist1 < dist0:
+            self.alpha[0] *= 1.0 - dist1 / dist0 * self.epsilon[0]
+        elif dist1 > dist0:
+            self.alpha[0] *= 1.0 + dist0 / dist1 * self.epsilon[0]
         self.alpha[1] = self.alpha[0]
+        print("Alpha")
+        print(self.alpha)
+        print("--------")
 
     def ch_rule_2(self, p2, p1, p0):
         dist1 = math.sqrt(math.pow(p2[0] - p1[0], 2.0) + math.pow(p2[1] - p1[1], 2.0))
         dist0 = math.sqrt(math.pow(p1[0] - p0[0], 2.0) + math.pow(p1[1] - p0[1], 2.0))
-        if dist1 > dist0:
-            self.alpha[0] *= math.e * dist0 / dist1
-        elif dist0 > dist1:
-            self.alpha[0] *= math.e * dist1 / dist0
+        print("Dist 0 is", dist0)
+        print("Dist 1 is", dist1)
+        if dist1 < dist0:
+            self.alpha[0] *= 1.0 - math.e ** -1.0 * self.epsilon[0]
+        elif dist1 > dist0:
+            self.alpha[0] *= 1.0 + math.e ** -1.0 * self.epsilon[0]
         self.alpha[1] = self.alpha[0]
+        print("Alpha")
+        print(self.alpha)
+        print("--------")
 
     def run(self):
         while not self.exit.is_set():
