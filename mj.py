@@ -21,14 +21,6 @@ if GPU_ACCELERATION_AVAILABLE:
 def is_gpu_accelerated():
     return GPU_ACCELERATION_AVAILABLE
 
-
-class DefaultConstants:
-    MAX_ITERATIONS = 512
-    ESCAPE_RADIUS = 4
-    HEIGHT = 8192
-    WIDTH = 8192
-
-
 class GPUObject(object):
     def __init__(self, max_iterations=512, escape_radius=4, power=2):
         self.kernel_headers = self.set_kernel_headers(max_iterations, escape_radius, power)
@@ -108,8 +100,9 @@ class FractalBuilderGPU(GPUObject):
                       fy = y / (float)(height - 1);
 
                 z = c_min + complex(fx * distance.real(), fy * distance.imag());
-                complex c = complex(-0.11, 0.51);
+                //complex c = complex(-0.11, 0.51);
                 //complex c = complex(-0.7, 0.27015);
+                complex c = complex(-0.9, 0.189);
 
                 int iteration = 0;
                 while(iteration < MAX_ITERATIONS && abs(z) < ESCAPE_RADIUS) {
@@ -243,9 +236,9 @@ class Mandelbrot(FractalBuilderGPU):
         command = "0"
         print('')
         print("Enter command (help for Q&A)")
-        while (command not in self.commands):
+        while command not in self.commands:
             command = input("->")
-            if (command not in self.commands["commands"]):
+            if command not in self.commands["commands"]:
                 print("There is no such command")
             else:
                 return self.commands["commands"][command]
@@ -257,7 +250,7 @@ class Mandelbrot(FractalBuilderGPU):
 
     def make_default(self):
         self.start_point = [-0.5, 0.0]
-        self.c = [-0.11, 0.51]
+        # self.c = [-0.11, 0.51]
         self.power = 2
         self.escape_radius = 2.0
         self.niter = 1000
@@ -380,7 +373,9 @@ class Mandelbrot(FractalBuilderGPU):
         n = [10, 100, 250, 500, 750, 1000]
         p = [2, 3, 4, 5]
         file_path = 'E:\\TEMP\\NLA\\%(NAME)s_set_of_power_%(POW)s_in_%(ITER)s_iterations.png'
-        for name in self.function_names:
+        self.real_axis_range = [-2.0, 1.0]
+        self.imag_axis_range = [-1.25, 1.25]
+        for name in ['mandelbrot']:
             self.function_name = name
             for j in p:
                 self.power = j
@@ -395,7 +390,7 @@ class Mandelbrot(FractalBuilderGPU):
                     plt.imsave(file_path % ({'POW': j, 'NAME': name, 'ITER': item}), M,
                                cmap='PuBu')
 
-                    print(file_path % ({'POW': j, 'NAME': name, 'ITER': item}), " - is done")
+                    print(file_path % ({'POW': j, 'NAME': name+'_-2_1.0_', 'ITER': item}), " - is done")
                     dt = timer() - start
                     print("Was rendered and saved in {: f} s".format(dt))
 
@@ -469,7 +464,7 @@ class Mandelbrot(FractalBuilderGPU):
         print(cmaps)
         print(cmaps[9])
         plt.imshow(self.matrix.reshape(self.height, self.width),
-                   cmap=cmaps[cmaps.index('afmhot')],
+                   cmap=cmaps[cmaps.index('PuBu')],
                    aspect='auto')
         plt.show()
 
@@ -480,9 +475,8 @@ class Mandelbrot(FractalBuilderGPU):
         ax.axis('off')
         print(cmaps)
         print(cmaps[9])
-        plt.imsave(self.file_path, self.matrix.get().reshape(self.height, self.width),
-                   cmap=cmaps[cmaps.index('afmhot')],
-                   origin='lower')
+        plt.imsave(self.file_path, self.matrix.reshape(self.height, self.width),
+                   cmap=cmaps[cmaps.index('PuBu')])
         # plt.savefig('Z:\\NLA\\fig_test_0.png', bbox_inches='tight')
         # self.image.save('Z:\\NLA\\fig_test_0.png')
 
