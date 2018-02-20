@@ -251,7 +251,7 @@ class Mandelbrot(FractalBuilderGPU):
     def make_default(self):
         self.start_point = [-0.5, 0.0]
         # self.c = [-0.11, 0.51]
-        self.power = 2
+        self.power = 8
         self.escape_radius = 2.0
         self.niter = 1000
         self.width = 8192
